@@ -1,0 +1,95 @@
+Intro to Relational Databases
+
+Part 1: Elements of SQL
+
+1. SQL is for Elements
+
+2. Quiz: Talk to the Zoo Database
+
+3. Types in SQL World
+text, integer, date
+integer and date need variables to be in single quotes i.e. two of '
+
+4. Just a few SQL Types
+Text and String types e.g. text [string of any length], char(n) [exactly n char], varchar(n) [up to n char]
+Numeric Types e.g. integer, real [accurate to 6 decimal places], double precision [accurate to 15 places], decimal [an exact decimal value]
+Date and time Types e.g. date, time, timestamp [date & time together]
+
+5. Quiz: Select Where
+SQL supports and, or, not
+select name from animals where species != 'gorilla' and name != 'Max';
+select name from animals where not species = 'gorilla' and not name = 'Max';
+select name from animals where not (species = 'gorilla' or name = 'Max');   = logic rule called DeMorgan's Law
+
+6. Comparison Operators
+< > = != <= >=
+select * from animals where species = 'llama' and birthdate >= '1995-01-01' and birthdate <= '1998-12-31'; 
+
+7. The One Thing SQL is Terrible At
+Listing the names of tables and columns in a standard way
+PostgreSQL: \dt  \d 'tablename'
+MySQL: show tables and describe 'tablename'
+SQLite: .tables and .scheme 'tablename'
+
+8. Quiz: The Experiment Page
+
+9. Quiz: Select Clauses
+Limit (count) offset (skip)  e.g. limit 10 offset 150 = 10 rows starting at the 151st row 
+Order by (column) [desc]   e.g. order by species, name    sort result rows by species first then name within each species
+Group by (column)  
+    e.g. select species, min(birthdate) from animals group by species; for each species of animal find the oldest animal's birthdate
+    e.g. select name, count(*) as num from animals group by name; count all the rows and call the count column num, aggregate  by values of the name column
+
+Select clauses = {where, limit, offset, order by, group by}
+
+'Find the ten oldest gorillas' 								- uses: {where, limit, order by} 
+'List all the animals in alphabetical order, 10 per page'	- uses: {order by, limit, offset}
+'Find out which one species we have the most of'			- uses: {limit (set limit to 1), group by (group same animals), order by (list by biggest quantity)} 
+
+10. Why do it in the Database 
+... instead of retrieve all the data and doing it locally with, for example, Python?
+Answer: Speed and Space.
+(It's good practice too)
+
+11. Count all the Species
+QUERY = "select species, count(*) as num from animals group by species order by num desc;"
+This is the same as :
+select COLUMNS from TABLES AGGREGATION SORTING
+no WHERE required as we didn't need to exclude any rows from the investigation
+
+12. Adding Rows
+insert into TABLE values (42, 'stuff');
+insert into TABLE (COL2, COL1), values (42, 'stuff');   <-- if values are not in the same order as the table's columns
+
+SELECT_QUERY = "select name, birthdate  from animals where species = 'opossum';"
+INSERT_QUERY = "insert into animals values ('Jerry', 'opossum', '2016-11-08');"
+INSERT_QUERY = "insert into animals (name, species, birthdate) values ('Jerry', 'opossum', '2016-11-08');"  = the same thing
+
+13. Find the Fish Eaters
+select ROWS from JOINED TABLES on JOIN CONDITION
+e.g. select T.thing, S.stuff from T, S where T.target = S.match
+e.g. select name from animals, diet where animals.species = diet.species and diet.food = 'fish';
+
+14. After Aggregating
+Note that 'where' runs before aggregation and is a restriction on the source tables i.e. cannot use 'where' on a aggregated result
+Solution: use 'having' 
+'having' is a restriction on the result.. after aggregation
+e.g. select species, count(*) as num from animals group by species having num = 1; gives list of animals the zoo only has one of
+
+#
+# Find the one food that is eaten by only one animal.
+#
+# The animals table has columns (name, species, birthdate) for each individual.
+# The diet table has columns (species, food) for each food that a species eats.
+#
+
+QUERY = '''
+select food, count(animals.name) as num 
+from diet, animals 
+where diet.species = animals.species
+group by food
+having num = 1;
+'''
+
+Note 1. that without the last two/three lines the output made no sense.
+Note 2. 'having' requires a preceding 'group by'
