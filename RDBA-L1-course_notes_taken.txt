@@ -1,0 +1,58 @@
+Intro to Relational Databases
+
+Part 1: Data and Tables
+
+1. Welcome to RDB
+Project = Relational Concepts, SQL Queries, Python DB-API, More SQL, Final Project (plan a game tournament)
+
+2. What's a Database
+All DB have features: persistent storage, safe concurrent access by multiple programs/users
+Relational DB also have: flexible query language, constraints (rules for protecting data consistency)
+
+3. Looking at Tables
+
+4. Quiz: Data Types and Meaning
+
+5. Quiz: Data Meanings
+
+6. Zoo
+
+7. Anatomy of a Table
+
+8. Answering Questions from a Table
+
+9. Aggregations
+count, avg, max, min, sum.
+Note that 'count' works on everything while the others only work on numbers. 
+
+10. Queries and Results
+Restrictions implies rows
+
+11. How Queries Happen
+sqlite is for colocations i.e. one machine and no network/tcpip involved
+others include oracle, postresql, mysql
+Results from a database are a table of rows
+select 2+2 as sum; gives a 1 row back (sum is the title of the table now)
+
+12. Favorite Animals
+
+13. Related Tables
+
+14. Uniqueness and Keys
+A column that uniquely identifies the rows in a table can be called a Primary Key (e.g. countries in the world)
+
+15. Primary Key
+A entry must exist in every row for a column to be a primary key (and be unique)
+
+16. Joining Tables
+Join on species  -->  restrictions  -->  count
+e.g. animals = table with columns: name,species; diet = table with columns: species, food 
+    select animals.name,animals.species,diet.food 
+       from animals join diet 
+       on animals.species=diet.species 
+       where food='fish';
+
+17. Database Concepts
+ID's need to be unique and ID's can link up rows in different tables.
+
+18. Summary
