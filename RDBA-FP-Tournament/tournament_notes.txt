@@ -1,0 +1,85 @@
+Notes from Final Project (tournament)
+
+1. Need to connect to DB before importing DB, otherwise the import is not saved correctly
+	psql
+	\c tournament
+	\i tournament.sql
+
+2. Need to commit DB changes within python functions e.g. DB.commit()
+
+3. Need to close connection to DB e.g. DB.close() at the end of each python function
+
+4. count = c.fetchone() produces an array of one item => count[0] gives an integer
+
+5. Need a comma after variable if only one variable & need to name column. 
+   In this example 'name' happens to be both the column name and variable name
+	def registerPlayer(name): 
+		data = (name,)
+		SQL = "insert into players (name) values (%s);"
+		c.execute(SQL,data)
+
+   Normal case: 
+		data = (winner,loser)
+	    SQL = "insert into match_records values (%s, %s);"
+	
+		
+6. This is how to connect to a DB
+	def connect():
+		"""Connect to the PostgreSQL database.  Returns a database connection."""
+		return psycopg2.connect("dbname=tournament")
+	def someOtherFunction()
+		DB = connect()
+		c = DB.cursor()
+		c.execute(SQL,data)
+
+7. case and sum statements exist in sql. The following gives the id, name, win count, match count of each player. 
+    c.execute(" select players.id as id, players.name as name, sum(case when match_records.winner=players.id then 1 else 0 end) win , sum(case when match_records.loser=players.id or match_records.winner=players.id then 1 else 0 end) matches from players left join match_records on match_records.winner >= 0 group by players.id order by win desc;")
+		
+8. I can also order by something that is not displayed e.g. 
+    c.execute(" select players.id as id, players.name as name from players left join match_records on players.id = match_records.winner  group by players.id order by count(match_records.winner) desc")
+
+Various tables in the DB
+-------------------------
+
+tournament=> \dt
+            List of relations
+ Schema |     Name      | Type  |  Owner
+--------+---------------+-------+---------
+ public | match_records | table | vagrant
+ public | players       | table | vagrant
+(2 rows)
+
+tournament=> \d match_records;
+ Table "public.match_records"
+ Column |  Type   | Modifiers
+--------+---------+-----------
+ winner | integer |
+ loser  | integer |
+Foreign-key constraints:
+    "match_records_loser_fkey" FOREIGN KEY (loser) REFERENCES players(id)
+    "match_records_winner_fkey" FOREIGN KEY (winner) REFERENCES players(id)
+
+tournament=> \d players;
+                         Table "public.players"
+ Column |  Type   |                      Modifiers
+--------+---------+------------------------------------------------------
+ id     | integer | not null default nextval('players_id_seq'::regclass)
+ name   | text    |
+Indexes:
+    "players_pkey" PRIMARY KEY, btree (id)
+Referenced by:
+    TABLE "match_records" CONSTRAINT "match_records_loser_fkey" FOREIGN KEY (loser) REFERENCES players(id)
+    TABLE "match_records" CONSTRAINT "match_records_winner_fkey" FOREIGN KEY (winner) REFERENCES players(id)
+
+tournament=> select * from match_records;
+ winner | loser
+--------+-------
+(0 rows)
+
+tournament=> select * from players;
+ id | name
+----+------
+(0 rows)
+
+tournament=>
+	
