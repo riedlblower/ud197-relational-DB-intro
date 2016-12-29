@@ -1,0 +1,249 @@
+Intro to Relational Databases
+
+Part 4: Deeper into SQL
+
+1. Intro to Creating Tables
+Learn to define new tables and declare the relationships between them
+Then learn new tricks to do stuff in SQL rather than python => things are faster
+
+2. Normalized Design Part One
+In a normalized database, the relationships among the tables match the relationships
+that are really there among the database.
+
+3. Normalized Design Part Two
+1. Every row has the same number of columns.
+2. There is a unique key and everything in that row says something about that key. (sometimes all columns are the key e.g. students & subjects as students can do more than one subject)
+3. Facts that don't relate to the key belong in different tables. (i.e. non key columns describe the key and not other non key columns) 
+4. Tables shouldn't imply relationships that don't exist (e.g. Anabel Linux French, no connection between Linux & French)
+Result seems to be to use more tables rather than squashing everything into few tables, each with long rows of many columns.
+
+4. What's Normalized
+
+5. Create Table and Types
+		create table tablename (
+			column1 type [constraints],
+			column2 type [constraints],
+			:
+			[row constraints]);
+	
+		create table tablename (
+			column1 type,
+			column2 type,...);
+	
+PostgreSQL can deal with booleans, bit strings, integers, text, dates and times, IP addresses, geometric shapes, reals, money, XML, JSON, ranges, arrays, .....
+MySQL can deal with a lot of those. (workaround is e.g. integer or text string can be used to store IP addresses, dates are stored as strings)
+SQLite can only deal with null, integer, real, text, blob,... (but can fit in a browser!)
+
+User facing code usually doesn't create tables. Usually tables are created at the beginning as part of installation procedure.
+
+6. Quiz: Creating and Dropping
+create database name [options];
+drop database name [options];
+drop table name [options];
+There is never any confirmation popup so be careful
+
+\c name     connects to a database in psql
+\q    exits out of the database
+BTW can't drop a DB you're connected to.
+
+vagrant@vagrant-ubuntu-trusty-32:/vagrant/fishies$ psql
+psql (9.3.15)
+Type "help" for help.
+
+vagrant=> create database fishies;
+CREATE DATABASE
+vagrant=> \c fishies
+You are now connected to database "fishies" as user "vagrant".
+
+fishies=> CREATE TABLE names (id SERIAL, name TEXT);
+CREATE TABLE
+
+fishies=> INSERT into names (name) VALUES ('nemo');
+INSERT 0 1
+
+fishies=> select * from names;
+ id | name
+----+------
+  1 | nemo
+(1 row)
+
+Note: column id of SERIAL type is automatically updated and is not referenced in INSERT command
+
+fishies=> \q
+vagrant@vagrant-ubuntu-trusty-32:/vagrant/fishies$
+
+7. Quiz: Declaring Primary Keys
+Primary Key is a column or columns that uniquely identify what each row in a table is about
+The table for voting on forum comments has a primary key of two columns (poster & comment being voted on) i.e. can't vote twice on the same comment!  
+create table students (
+		id serial primary key,      <-- note the 'primary key'
+		name text, 
+		birthdate date
+		);    
+
+create table postal_places (
+		postal_code text,
+		country text,
+		name text,
+		primary key (postal_code, country)
+		); 
+		
+Might have to roll back if an error occurs on trying to insert a row with a duplicate primary key (already used somewhere).
+
+8. Declaring Relationships
+create tables sales (
+		sku text references products,		(sku = stock keeping unit, column in products table, sku is in both tables, otherwise 'references products (sku),' .)
+		sale_date date,
+		count integer
+		);
+
+create tables products (
+		sku text primary key,
+		price integer, 
+		name text
+		);
+references provides referential integrity - columns that are supposed to refer to each other are guaranteed to do so, i.e. can catch errors early as entries in a column should refer to existing cells in the column of another table.
+
+9. Quiz: Foreign Keys
+A foreign key is a column or set of columns in a table that uniquely references rows in another table.
+
+FQ usually points a primary key in the referenced table.
+
+create table students (id serial primary key, name text);    
+create table courses (id text primary key, name text);     sample id = CS101
+create table grades (student integer references students (id), course text references courses (id));
+
+10. Self Joins
+This is faster than extracting data into python and then doing analysis.
+
+select a.id, b.id, a.building, a.room
+       from residences as a, residences as b
+ where a.building = b.building
+   and a.room = b.room
+   and a.id < b.id      <<--- note the '<', this eliminates (1) identical duplicates and (2) where each row is included a second time but with a.id and b.id in reverse order.  
+ order by a.building, a.room;
+ 
++--------+--------+----------+------+
+|     id |     id | building | room |
++========+========+==========+======+
+| 413001 | 881256 |   Crosby |   10 |
+| 496747 | 741532 |   Crosby |   19 |
+| 612413 | 931027 |   Crosby |   31 |
+| 170267 | 958827 | Dolliver |    1 |
+| 104131 | 707536 | Dolliver |   14 |
+| 477801 | 505241 | Dolliver |    8 |
+| 118199 | 824292 | Kendrick |   1A |
+| 105540 | 231742 | Kendrick |   3B |
++--------+--------+----------+------+
+
+select id, building, room from residences;
++--------+----------+------+
+|     id | building | room |
++========+==========+======+
+| 104131 | Dolliver |   14 |
+| 105540 | Kendrick |   3B |
+| 118199 | Kendrick |   1A |
+| 161282 | Dolliver |    7 |
+:
+
+11. Quiz: Counting What Isn't There
+		select products.name, products.sku, count(sales.sku) as num
+			from products left join sales
+				on products.sku = sales.sku
+			group by products.sku;
+  
+First, we’re using count(sales.sku) instead of count(*). This means that the database will count only rows where sales.sku is defined, instead of all rows.
+
+Second, we’re using a left join instead of a plain join.  The words “left” and “right” refer to the tables to the left and right of the join operator.
+A regular (inner) join returns only those rows where the two tables have entries matching the join condition. A left join returns all those rows, plus the rows where the left table has an entry but the right table doesn’t. And a right join does the same but for the right table.
+
+select * from programs;
++--------------------+--------------+
+|               name |     filename |
++====================+==============+
+| Your Database Code |  database.py |
+|      Fancy Website |   index.html |
+|      Fancy Website |   styles.css |
+|      Fancy Website |   buttons.js |
+|  Sweet Spreadsheet |     cells.hs |
+|  Sweet Spreadsheet |    sheets.hs |
+|  Sweet Spreadsheet | interface.hs |
++--------------------+--------------+
+
+select * from bugs;
++--------------+-----------------------------------------+----+
+|     filename |                             description | id |
++==============+=========================================+====+
+|   index.html | Add microformat tags for search engines |  1 |
+|   styles.css |        Pink Comic Sans is a silly thing |  2 |
+|   styles.css |         Make graphs colorblind-friendly |  3 |
+|    sheets.hs |            Recalculations cons too much |  4 |
+| interface.hs |                 UI needs to support Mac |  5 |
++--------------+-----------------------------------------+----+
+  
+-- Here are two tables describing bugs found in some programs.
+-- The "programs" table gives the name of each program and the files
+-- that it's made of.  The "bugs" table gives the file in which each
+-- bug was found.
+--
+-- create table programs (
+--    name text,
+--    filename text
+-- );
+-- create table bugs (
+--    filename text,
+--    description text,
+--    id serial primary key
+-- );
+--
+-- The query below is intended to count the number of bugs in each
+-- program. But it doesn't return a row for any program that has zero
+-- bugs. Try running it as it is.  Then change it so that the results
+-- will also include rows for the programs with no bugs.  These rows
+-- should have a 0 in the "bugs" column.
+
+--select programs.name, count(*) as num
+--    from programs join bugs
+--        on programs.filename = bugs.filename
+--    group by programs.name
+--    order by num;
+  
+select programs.name, count(bugs.filename) as num
+    from programs left join bugs
+        on programs.filename = bugs.filename
+    group by programs.name
+    order by num;
+  
+Something to watch out for: What do you put in the count aggregation? If you leave it as count(*) or use a column from the programs table, your query will count entries that don't have bugs as well as ones that do.
+
+In order to correctly report a zero for programs that don't have any entries in the bugs table, you have to use a column from the bugs table as the argument to count. For instance, count(bugs.filename) will work, and so will count(bugs.description).
+
+12. Subqueries
+select -> [ result table ] -> select -> [ result table ]
+	select avg(bigscore) from (
+						select max(score) as bigscore from mooseball group by team
+						) 
+						as maxes;    <-- must give it a name like 'maxes'
+
+13. Quiz: One Query Not Two
+
+def lightweights(cursor):
+    """Returns a list of the players in the db whose weight is less than the average."""
+    cursor.execute("select avg(weight) as av from players;")
+    av = cursor.fetchall()[0][0]  # first column of first (and only) row
+    cursor.execute("select name, weight from players where weight < " + str(av))
+    return cursor.fetchall()
+
+Solution: select name, weight from players where weight <  (select avg(weight) from players);
+Solution in course: select name, weight 
+						from players, 
+							(select avg(weight) as av from players) as subq   <-- have to give the subquery some name i.e. subq
+						where weight < av;
+14. Quiz: Views
+A view is a select query stored in the database in a way that lets you use it like a table, i.e. the returned table is remembered and can be used later without another select being performed.
+syntax = create view viewname as select ...
+In PostgreSQL you are able to update and delete rows in SOME views but not others (e.g. complicated ones with joins, etc)
+Views are useful with 1. aggregations and 2. showing two/three columns from a table with loads of columns. 
+
+15. Outro
+

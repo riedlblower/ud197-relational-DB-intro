@@ -1,0 +1,35 @@
+Intro to Relational Databases
+
+Part 5: Tournament Database
+
+1. Final Project: Swiss Style Tournament,
+No players are eliminated.
+In each round each player plays again players who have roughly the same number of wins and losses.
+At the end players on the same score (ties) are decided by who each player beat (easy opponents or hard opponents)
+
+2. Quiz: Mathematical
+16 players => 4 rounds to find unbeaten player and 32 matches in total are played.
+
+3. What's in the Database
+create statements are to be written in a file called tournament.sql
+drop table sometable;   <-- removes a table completely so you can recreate it
+delete from sometable;    <-- removes all the rows from the table but leaves its column definitions, constraints, etc intact.
+when players are added then each player needs a unique id (type serial)
+use aggregations instead of python len()
+if the queries are starting to get really complicated then use views. Views work nicely with aggregations when you want to produce summary data quickly.
+
+4. Project Description
+
+
+5. Quiz: Ready to Play
+What did you learn as a surprising fact in the project
+
+6. Outro 
+You now know the basic operations of SQL and elementary database design and beaten some of the biggest bugs in area of database backed websites.
+Future areas or 'next steps' include: 
+relational algebra
+production systems - bigger and more reliable databases
+database backed web applications in python 
+
+
+$ psql -f tournament.sql    - import file from command line prompt

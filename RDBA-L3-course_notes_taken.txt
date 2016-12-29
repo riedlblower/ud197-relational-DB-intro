@@ -1,0 +1,306 @@
+Intro to Relational Databases
+
+Part 3: Python DB-API 
+
+1. Welcome to your Databases
+
+2. What's a DB-API
+Me <----> Udacity web server <---> python code <---> sqlite <--> data
+DB-API method calls are involved between python code and sqlite
+DB system	:	DB-API module 
+SQLite		:	sqlite3        .... exercises in browser
+PostgreSQL	:	psycopg3       .... exercises on my own machine
+ODBC		:	pyodbc
+MySQL		:	mysql.connector
+.....
+
+3. Writing Code with DB-API
+import sqlite3      (or psycopg3 if postgres)
+conn = sqlite3.connect("Cookies")
+cursor = conn.cursor()
+cursor.execute("select host_key from cookies limit 10")
+results = cursor.fetchall()     [fetchone() is fetch one at a time]
+print results
+conn.close
+
+4. Quiz: Trying out DB-API
+
+5. Quiz: Inserts into DB-API
+pg = psycopg3.connect("dbname = somedb")
+c = pg.cursor()
+c.execute("insert into names values ('Jennifer Smith')")
+pg.commit()				<<--- this is point of lesson here, note it is pg.commit() and not c.commit()!!  & remember the ()!!
+atomicity is the fact that a transaction happens as a whole or doesn't happen at all.
+
+6. Running the Forum
+python forum.py
+
+7. Hello PostgreSQL
+psql forum
+\d posts     describes the posts table
+
+8. Quiz: Give that App a Backend
+#
+# Database access functions for the web forum.
+#
+
+import time
+import psycopg2
+
+## Database connection
+#DB = []
+
+## Get posts from database.
+def GetAllPosts():
+    '''Get all the posts from the database, sorted with the newest first.
+
+    Returns:
+      A list of dictionaries, where each dictionary has a 'content' key
+      pointing to the post content, and 'time' key pointing to the time
+      it was posted.
+    '''
+#    posts = [{'content': str(row[1]), 'time': str(row[0])} for row in DB]
+#    posts.sort(key=lambda row: row['time'], reverse=True)
+#    return posts
+
+    DB = psycopg2.connect("dbname = forum")
+    c = DB.cursor()
+    c.execute("select time, content from posts order by time desc")
+    results = ({'content': str(row[1]), 'time': str(row[0])}
+               for row in c.fetchall())
+    print results
+    DB.close()
+    return results
+
+## Add a post to the database.
+def AddPost(content):
+    '''Add a new post to the database.
+
+    Args:
+      content: The text content of the new post.
+    '''
+    t = time.strftime('%c', time.localtime())
+    data = (content,t)
+    SQL = "insert into posts values (%s, %s);"
+    DB = psycopg2.connect("dbname = forum")
+    c = DB.cursor()
+    c.execute(SQL, data)    <<-- much more secure to use this method
+#    c.execute("INSERT INTO posts (content) VALUES ('%s')" %content)
+    DB.commit()
+    DB.close()
+    return
+                  
+10. Bobby Tables Destroyer of Posts
+Big hole if the following was used: c.execute("INSERT INTO posts (content) VALUES ('%s')" %content)
+
+11. Quiz: Curing Bobby Tales
+    plant = "pumkin"
+	c = conn.cursor()
+	c.execute("insert into garden values (%s)",(plant,))   <<-- (plant,) is a tuple, hence the comma
+
+12. Spammy Tables
+Script injection attack. Stored data is in fact javascript code. Browsers execute this instead of displaying the data on GetAllPosts()
+Do not put arbitrary javascript code in comments of real world web forums!
+
+This is an example of trouble ahead
+<script>
+setTimeout(function() {
+    var tt = document.getElementById('content');
+    tt.value = "<h2 style='color: #FF6699; font-family: Comic Sans MS'>Spam, spam, spam, spam,<br>Wonderful spam, glorious spam!</h2>";
+    tt.form.submit();
+}, 2500);
+</script>
+
+13. Quiz: Stopping the Spam
+Use bleach
+
+14. Quiz: Updating Away the Spam
+update table
+    set column = value
+	where restriction;    e.g. where content like '%awful%'
+e.g. update posts set content = 'cheese' where content like '%spam%';
+	
+$ psql forum    - enter the forum DB and end up with =>
+=> \q      		- quit the DB and go back to vagrant ssh prompt of $
+Always remember the ; 
+	
+15. Quiz: Deleting the Spam
+delete from table
+	where restriction;
+	
+16. Conclusion
+
+======================================
+
+vagrant@vagrant-ubuntu-trusty-32:/vagrant/forum$ cat forum.py
+#
+# DB Forum - a buggy web forum server backed by a good database
+#
+
+# The forumdb module is where the database interface code goes.
+import forumdb
+import bleach
+
+# Other modules used to run a web server.
+import cgi
+from wsgiref.simple_server import make_server
+from wsgiref import util
+
+# HTML template for the forum page
+HTML_WRAP = '''\
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DB Forum</title>
+    <style>
+      h1, form { text-align: center; }
+      textarea { width: 400px; height: 100px; }
+      div.post { border: 1px solid #999;
+                 padding: 10px 10px;
+                 margin: 10px 20%%; }
+      hr.postbound { width: 50%%; }
+      em.date { color: #999 }
+    </style>
+  </head>
+  <body>
+    <h1>DB Forum</h1>
+    <form method=post action="/post">
+      <div><textarea id="content" name="content"></textarea></div>
+      <div><button id="go" type="submit">Post message</button></div>
+    </form>
+    <!-- post content will go here -->
+%s
+  </body>
+</html>
+'''
+
+# HTML template for an individual comment
+POST = '''\
+    <div class=post><em class=date>%(time)s</em><br>%(content)s</div>
+'''
+
+## Request handler for main page
+def View(env, resp):
+    '''View is the 'main page' of the forum.
+
+    It displays the submission form and the previously posted messages.
+    '''
+    # get posts from database
+    posts = forumdb.GetAllPosts()
+    # send results
+    headers = [('Content-type', 'text/html')]
+    resp('200 OK', headers)
+    return [HTML_WRAP % ''.join(POST % p for p in posts)]
+
+## Request handler for posting - inserts to database
+def Post(env, resp):
+    '''Post handles a submission of the forum's form.
+
+    The message the user posted is saved in the database, then it sends a 302
+    Redirect back to the main page so the user can see their new post.
+    '''
+    # Get post content
+    input = env['wsgi.input']
+    length = int(env.get('CONTENT_LENGTH', 0))
+    print input
+    print "length of post: " + str(length)
+    # If length is zero, post is empty - don't save it.
+    #if length > 0:
+    if length > 8:
+        postdata = input.read(length)
+        fields = cgi.parse_qs(postdata)
+        content = fields['content'][0]
+        # If the post is just whitespace, don't save it.
+        content = content.strip()
+        #content = bleach.clean(content)
+        if content:
+            # Save it in the database
+            forumdb.AddPost(content)
+    # 302 redirect back to the main page
+    headers = [('Location', '/'),
+               ('Content-type', 'text/plain')]
+    resp('302 REDIRECT', headers)
+    return ['Redirecting']
+
+## Dispatch table - maps URL prefixes to request handlers
+DISPATCH = {'': View,
+            'post': Post,
+            }
+
+## Dispatcher forwards requests according to the DISPATCH table.
+def Dispatcher(env, resp):
+    '''Send requests to handlers based on the first path component.'''
+    page = util.shift_path_info(env)
+    if page in DISPATCH:
+        return DISPATCH[page](env, resp)
+    else:
+        status = '404 Not Found'
+        headers = [('Content-type', 'text/plain')]
+        resp(status, headers)
+        return ['Not Found: ' + page]
+
+
+# Run this bad server only on localhost!
+httpd = make_server('', 8000, Dispatcher)
+print "Serving HTTP on port 8000..."
+httpd.serve_forever()
+
+======================================
+
+vagrant@vagrant-ubuntu-trusty-32:/vagrant/forum$   cat forumdb.py
+#
+# Database access functions for the web forum.
+#
+
+import time
+import psycopg2
+import bleach
+
+## Database connection
+#DB = []
+
+## Get posts from database.
+def GetAllPosts():
+    '''Get all the posts from the database, sorted with the newest first.
+
+    Returns:
+      A list of dictionaries, where each dictionary has a 'content' key
+      pointing to the post content, and 'time' key pointing to the time
+      it was posted.
+    '''
+#    posts = [{'content': str(row[1]), 'time': str(row[0])} for row in DB]
+#    posts.sort(key=lambda row: row['time'], reverse=True)
+#    return posts
+
+    DB = psycopg2.connect("dbname = forum")
+    c = DB.cursor()
+    c.execute("select time, content from posts order by time desc")
+    results = ({'content': str(bleach.clean(str(row[1]))), 'time': str(row[0])}
+               for row in c.fetchall())
+    #print results
+    DB.close()
+    return results
+
+## Add a post to the database.
+def AddPost(content):
+    '''Add a new post to the database.
+
+    Args:
+      content: The text content of the new post.
+    '''
+    #content = bleach.clean(content)
+    t = time.strftime('%c', time.localtime())
+    data = (content,t)
+    SQL = "insert into posts values (%s, %s);"
+#    DB.append((t, content))
+    # print SQL, data
+    DB = psycopg2.connect("dbname = forum")
+    c = DB.cursor()
+    c.execute(SQL, data)
+#    c.execute("INSERT INTO posts (content) VALUES ('%s')" %content)
+    DB.commit()
+    DB.close()
+    return
+
+===========================
+
